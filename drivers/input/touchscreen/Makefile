@@ -86,3 +86,6 @@ obj-$(CONFIG_INPUT_MT_WRAPPER)		+= input_mt_wrapper.o
 obj-$(CONFIG_TOUCHSCREEN_IT7260_I2C)    += it7258_ts_i2c.o
 obj-$(CONFIG_TESTPLUS_ONLY)            += melfas_mip4_testplus/
 obj-$(CONFIG_TEST_ONLY)                += melfas_mip4_test/
+#gaohw add GT9XX tp driver begin
+obj-$(CONFIG_TY_TOUCHSCREEN_GT9XX)	+= ty_gt9xx/
+#gaohw add GT9XX tp driver end
