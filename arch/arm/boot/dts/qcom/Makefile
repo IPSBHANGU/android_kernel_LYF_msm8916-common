@@ -84,6 +84,8 @@ dtb-$(CONFIG_ARCH_MSM8916) += test01a-msm8939-qrd-skuk.dtb
 else ifeq ($(CONFIG_TESTPLUS_ONLY),y)
 dtb-$(CONFIG_ARCH_MSM8916) += test01a-msm8939-qrd-skuk.dtb \
 	test01a-msm8939-v3.0-qrd-skuk.dtb
+else ifeq ($(CONFIG_MIRAGE_ONLY),y)
+dtb-$(CONFIG_ARCH_MSM8916) += mirage01a-msm8939-qrd-skuk.dtb
 else
 dtb-$(CONFIG_ARCH_MSM8916) += msm8916-cdp.dtb \
 	msm8916-cdp-smb1360.dtb \

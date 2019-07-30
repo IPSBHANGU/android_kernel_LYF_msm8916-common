@@ -14,4 +14,9 @@ config TESTPLUS_ONLY
 	  Support for LYF mobee01a variants
 	  make macro CONFIG_TEST_ONLY WORKED
 
-
+config MIRAGE_ONLY
+        bool "LYF Mirage01a"
+        depends on ARCH_MSM8916
+        help
+          Support for LYF mobee01a variants
+          make macro CONFIG_MIRAGE_ONLY WORKED
