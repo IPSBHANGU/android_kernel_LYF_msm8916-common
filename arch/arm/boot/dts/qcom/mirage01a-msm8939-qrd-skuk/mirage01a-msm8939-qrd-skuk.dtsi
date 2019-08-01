@@ -11,10 +11,8 @@
  */
 
 #include "mirage01a-msm8939-qrd.dtsi"
-#include "mirage01a-msm8939-camera-sensor-qrd.dtsi"
-#include "../dsi-panel-nt35596-1080p-skuk-video.dtsi"
 #include "dsi-panel-tdi-1080p-video.dtsi"
-
+#include "mirage01a-msm8939-camera-sensor-qrd.dtsi"
 
 &soc {
 	i2c@78b9000 { /* BLSP1 QUP5 */
@@ -55,22 +53,20 @@
 		qcom,msm-mbhc-gnd-swh = <0>;
 		qcom,msm-micbias1-ext-cap;
 		qcom,msm-hs-micbias-type = "internal";
-		qcom,msm-spk-ext-pa = <&msm_gpio 11 0>;
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"SPK_RX_BIAS", "MCLK",
 			"INT_LDO_H", "MCLK",
-			"MIC BIAS External", "Handset Mic",
+			"MIC BIAS Internal1", "Handset Mic",
 			"MIC BIAS Internal2", "Headset Mic",
-			"MIC BIAS External", "Secondary Mic",
-			"AMIC1", "MIC BIAS External",
+			"MIC BIAS Internal3", "Secondary Mic",
+			"AMIC1", "MIC BIAS Internal1",
 			"AMIC2", "MIC BIAS Internal2",
-			"AMIC3", "MIC BIAS External";
+			"AMIC3", "MIC BIAS Internal3";
 		pinctrl-names = "cdc_lines_act",
 				"cdc_lines_sus";
-		pinctrl-0 = <&cdc_pdm_lines_act &cdc_pdm_lines_act38>;
-		pinctrl-1 = <&cdc_pdm_lines_sus &cdc_pdm_lines_sus38>;
-
+		pinctrl-0 = <&cdc_pdm_lines_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&lpa>;
@@ -96,7 +92,7 @@
 				"msm-dai-q6-dev.16393", "msm-dai-q6-dev.16395",
 				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
 				"msm-dai-q6-dev.12290", "msm-dai-q6-dev.12292",
-				"msm-dai-q6-dev.12293",	"msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.12293", "msm-dai-q6-dev.224",
 				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
 				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
 				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",

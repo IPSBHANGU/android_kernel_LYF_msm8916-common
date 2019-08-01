@@ -12,8 +12,8 @@
 
 /dts-v1/;
 
-#include "./mirage01a-msm8939-qrd-skuk/mirage01a-msm8939.dtsi"
-#include "./mirage01a-msm8939-qrd-skuk/mirage01a-msm8939-qrd-skuk.dtsi"
+#include "msm8939.dtsi"
+#include "mirage01a-msm8939-qrd-skuk/mirage01a-msm8939-qrd-skuk.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8939 QRD SKUK";
@@ -89,16 +89,6 @@
 	pinctrl-0 = <&usbid_default>;
 	vbus_otg-supply = <&smb1360_otg_supply>;
 	qcom,usbin-vadc = <&pm8916_vadc>;
-};
-&mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_nt35596_1080p_skuk_video>;
-};
-
-&dsi_nt35596_1080p_skuk_video {
-	qcom,cont-splash-enabled;
-	qcom,esd-check-enabled;
-	qcom,mdss-dsi-pan-enable-dynamic-fps;
-	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode";
 };
 
 &dsi_tdi_1080p_video {
