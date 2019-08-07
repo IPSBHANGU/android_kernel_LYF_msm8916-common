@@ -108,6 +108,7 @@ obj-$(CONFIG_SENSORS_BMI160_I2C) += bmi160_i2c.o
 ifeq ($(CONFIG_SENSORS_BMI160_I2C),y)
 	EXTRA_CFLAGS += -DBMI_USE_BASIC_I2C_FUNC
 endif
+obj-$(CONFIG_INPUT_LSM6DX0) += lsm6dx0.o
 obj-$(CONFIG_INPUT_LSM6DS3) += lsm6ds3.o
 lsm6ds3-y := lsm6ds3_core.o
 obj-$(CONFIG_INPUT_LSM6DS3_I2C) += lsm6ds3_i2c.o
