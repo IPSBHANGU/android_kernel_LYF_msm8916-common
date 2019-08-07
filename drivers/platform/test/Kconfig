@@ -20,3 +20,10 @@ config MIRAGE_ONLY
         help
           Support for LYF mobee01a variants
           make macro CONFIG_MIRAGE_ONLY WORKED
+
+config ZX55Q05_ONLY
+	bool "LYF ZX55Q05"
+        depends on ARCH_MSM8916
+        help
+          Support for LYF zx55q05 variants
+          make macro CONFIG_ZX55Q05_ONLY WORKED
