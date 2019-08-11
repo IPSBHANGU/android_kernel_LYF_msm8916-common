@@ -191,6 +191,9 @@ struct mmc_async_req {
  */
 struct mmc_slot {
 	int cd_irq;
+#ifdef CONFIG_ZX55Q05_ONLY
+	bool detection;
+#endif
 	struct mutex lock;
 	void *handler_priv;
 };
@@ -270,7 +273,11 @@ struct mmc_host {
 #define MMC_CAP_SD_HIGHSPEED	(1 << 2)	/* Can do SD high-speed timing */
 #define MMC_CAP_SDIO_IRQ	(1 << 3)	/* Can signal pending SDIO IRQs */
 #define MMC_CAP_SPI		(1 << 4)	/* Talks only SPI protocols */
+#ifdef CONFIG_ZX55Q05_ONLY
+#define MMC_CAP_NEEDS_POLL	(0 << 5)	/* Needs polling for card-detection */
+#else
 #define MMC_CAP_NEEDS_POLL	(1 << 5)	/* Needs polling for card-detection */
+#endif
 #define MMC_CAP_8_BIT_DATA	(1 << 6)	/* Can the host do 8 bit transfers */
 
 #define MMC_CAP_NONREMOVABLE	(1 << 8)	/* Nonremovable e.g. eMMC */
