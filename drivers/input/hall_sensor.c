@@ -29,6 +29,9 @@
 #define	LID_DEV_NAME	"hall_sensor"
 #define HALL_INPUT	"/dev/input/hall_dev"
 
+/*guliangzeng add for get hall value 20150130 start*/
+static int hall_value=0;
+
 struct hall_data {
 	int gpio;	/* device use gpio number */
 	int irq;	/* device request irq number */
@@ -40,6 +43,41 @@ struct hall_data {
 	u32 max_uv;	/* device allow max voltage */
 };
 
+static ssize_t name_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {
+		return sprintf(buf,"%d\n",hall_value);
+}
+
+static struct kobj_attribute name_show_attr = { 
+	 .attr = {
+	        .name = "value",
+	        .mode = S_IRUGO, 
+	        },
+	    .show = &name_show, 
+ };
+
+static struct attribute *properties_attrs[] = {
+       &name_show_attr.attr,
+       NULL
+};
+
+static struct attribute_group properties_attr_group = {
+       .attrs = properties_attrs,
+};
+
+static void device_info_show(void)
+{
+	 int ret=0;
+	 struct kobject *properties_kobj;
+
+	 properties_kobj = kobject_create_and_add("hall", NULL);
+	 if (properties_kobj)
+	  ret = sysfs_create_group(properties_kobj,
+	    &properties_attr_group);
+	 if (!properties_kobj || ret)
+	  pr_err("failed to create info\n"); 
+}
+/*guliangzeng add for get hall value 20150130 end*/
+
 static irqreturn_t hall_interrupt_handler(int irq, void *dev)
 {
 	int value;
@@ -50,9 +88,11 @@ static irqreturn_t hall_interrupt_handler(int irq, void *dev)
 	if (value) {
 		input_report_switch(data->hall_dev, SW_LID, 0);
 		dev_dbg(&data->hall_dev->dev, "far\n");
+		hall_value=0;/*guliangzeng add for get hall value 20150130 */
 	} else {
 		input_report_switch(data->hall_dev, SW_LID, 1);
 		dev_dbg(&data->hall_dev->dev, "near\n");
+		hall_value=1;/*guliangzeng add for get hall value 20150130 */
 	}
 	input_sync(data->hall_dev);
 
@@ -201,6 +241,11 @@ static int hall_driver_probe(struct platform_device *dev)
 	struct hall_data *data;
 	int err = 0;
 	int irq_flags;
+	struct pinctrl *pinctrl;
+
+    pinctrl = devm_pinctrl_get_select_default(&dev->dev);
+	if (IS_ERR(pinctrl))
+		dev_warn(&dev->dev,"pins are not configured from the driver\n");
 
 	dev_dbg(&dev->dev, "hall_driver probe\n");
 	data = devm_kzalloc(&dev->dev, sizeof(struct hall_data), GFP_KERNEL);
@@ -255,7 +300,10 @@ static int hall_driver_probe(struct platform_device *dev)
 	}
 
 	device_init_wakeup(&dev->dev, data->wakeup);
+/* haolei modify for powersaving at 20150209 start*/
 	enable_irq_wake(data->irq);
+/* haolei modify for powersaving at 20150209 start*/
+
 
 	err = hall_config_regulator(dev, true);
 	if (err < 0) {
@@ -268,7 +316,7 @@ static int hall_driver_probe(struct platform_device *dev)
 		dev_err(&dev->dev, "power on failed: %d\n", err);
 		goto err_regulator_init;
 	}
-
+    device_info_show();/*guliangzeng add for get hall value 20150130*/
 	return 0;
 
 err_regulator_init:
