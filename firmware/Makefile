@@ -139,6 +139,11 @@ fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
 fw-shipped-$(CONFIG_TEST_ONLY) += melfas/test_melfas_mip4.bin
 fw-shipped-$(CONFIG_TESTPLUS_ONLY) += melfas/testplus_melfas_mip4.bin
 
+fw-shipped-$(CONFIG_ZX55Q05_ONLY) += cyttsp5_fw.bin
+fw-shipped-$(CONFIG_ZX55Q05_ONLY) += cyttsp5_fw_pid00.bin
+fw-shipped-$(CONFIG_ZX55Q05_ONLY) += cyttsp5_fw_pid01.bin
+fw-shipped-$(CONFIG_ZX55Q05_ONLY) += cyttsp5_fw_pid02.bin
+
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
 # Directories which we _might_ need to create, so we have a rule for them.
@@ -252,3 +257,5 @@ targets := $(fw-shipped-) $(patsubst $(obj)/%,%, \
 obj-n := dummy
 
 hostprogs-y := ihex2fw
+
+
