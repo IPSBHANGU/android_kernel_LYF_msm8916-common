@@ -12,6 +12,8 @@
 
 #include "mirage01a-msm8939-qrd.dtsi"
 #include "dsi-panel-tdi-1080p-video.dtsi"
+#include "dsi-panel-hx8394d-720p-video.dtsi"
+#include "../dsi-panel-nt35596-1080p-skuk-video.dtsi"
 #include "mirage01a-msm8939-camera-sensor-qrd.dtsi"
 
 &soc {

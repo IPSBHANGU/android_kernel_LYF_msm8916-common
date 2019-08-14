@@ -91,6 +91,22 @@
 	qcom,usbin-vadc = <&pm8916_vadc>;
 };
 
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35596_1080p_skuk_video>;
+};
+
+&dsi_hx8394d_720_vid {
+	qcom,cont-splash-enabled;
+	qcom,esd-check-enabled;
+};
+
+&dsi_nt35596_1080p_skuk_video {
+	qcom,cont-splash-enabled;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode";
+};
+
 &dsi_tdi_1080p_video {
 	qcom,cont-splash-enabled;
 };
