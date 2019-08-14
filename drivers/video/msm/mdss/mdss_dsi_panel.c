@@ -36,9 +36,15 @@
 #define MIN_REFRESH_RATE 48
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 
+#ifdef CONFIG_ZX55Q05_ONLY
+char lcd_info_pr[60]; //chenjian add for lcd info
+#endif
+
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
+#if defined(CONFIG_TEST_ONLY) || defined(CONFIG_TESTPLUS_ONLY) || defined(CONFIG_MIRAGE_ONLY)
 static int flag = 0;
+#endif
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -58,7 +64,10 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	int ret;
 	u32 duty;
 	u32 period_ns;
-
+#ifdef CONFIG_ZX55Q05_ONLY
+	int duty_ns,old_duty_ns;
+	static int last_level;
+#endif
 	if (ctrl->pwm_bl == NULL) {
 		pr_err("%s: no PWM\n", __func__);
 		return;
@@ -80,7 +89,11 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	duty = level * ctrl->pwm_period;
 	duty /= ctrl->bklt_max;
 
+#ifdef CONFIG_ZX55Q05_ONLY
+	pr_debug("%s: lidan  __-----bklt_ctrl=%d pwm_period=%d pwm_gpio=%d pwm_lpg_chan=%d\n",
+#else
 	pr_debug("%s: bklt_ctrl=%d pwm_period=%d pwm_gpio=%d pwm_lpg_chan=%d\n",
+#endif
 			__func__, ctrl->bklt_ctrl, ctrl->pwm_period,
 				ctrl->pwm_pmic_gpio, ctrl->pwm_lpg_chan);
 
@@ -95,16 +108,115 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 			return;
 		}
 	} else {
+#ifndef CONFIG_ZX55Q05_ONLY
 		period_ns = ctrl->pwm_period * NSEC_PER_USEC;
 		ret = pwm_config(ctrl->pwm_bl,
 				level * period_ns / ctrl->bklt_max,
 				period_ns);
+#else
+		period_ns = ctrl->pwm_period * NSEC_PER_USEC;
+		duty_ns=(level * period_ns) / ctrl->bklt_max;
+		old_duty_ns=( 3*4*period_ns / ctrl->bklt_max) ;
+		//printk("\n%s:lidan duty_ns= 100000___11111______level=%d- duty_ns=%d ,old_duty_ns=%d,level=%d\n", __func__,level,duty_ns, old_duty_ns,level);
+		//printk("lidan----------period_ns=%d\n",period_ns);
+		if(level >41 )
+		{
+			level = level - 37;
+			if(level>4 && level <80){
+				int i;
+				duty_ns =old_duty_ns + (level-4)*100;
+				for(i=0; i < 20;i++ ){
+					//printk("----AAAAAAA--------duty_ns=%d, i = %d,last_level=%d,level=%d \n",duty_ns, i,last_level,level );
+					if(last_level < level){
+						ret = pwm_config(ctrl->pwm_bl,duty_ns,period_ns);
+						if (ret) {
+							pr_err("%s: pwm_config() failed err=%d.\n",
+									__func__, ret);
+							return;
+						}
+						duty_ns = duty_ns +5;
+					}else{
+						ret = pwm_config(ctrl->pwm_bl,duty_ns,period_ns);
+						if (ret) {
+							pr_err("%s: pwm_config() failed err=%d.\n",
+									__func__, ret);
+							return;
+						}
+						duty_ns = duty_ns -5;
+						}
+					//mdelay(1);
+				}
+				//last_level = level;				
+			}
+			if(level>=80  &&  level <100){
+				int i;
+				duty_ns =  old_duty_ns + 7600 + (level-80)*200;
+				for(i=0; i <20;i++ ){
+					//printk("----BBBBB--------duty_ns=%d, i = %d,last_level=%d,level=%d \n",duty_ns, i,last_level,level );
+					if(last_level < level){
+						ret = pwm_config(ctrl->pwm_bl,duty_ns,period_ns);
+						if (ret) {
+							pr_err("%s: pwm_config() failed err=%d.\n",
+									__func__, ret);
+							return;
+						}
+						duty_ns = duty_ns +10;
+					}else{
+						ret = pwm_config(ctrl->pwm_bl,duty_ns,period_ns);
+						if (ret) {
+							pr_err("%s: pwm_config() failed err=%d.\n",
+									__func__, ret);
+							return;
+						}
+						duty_ns = duty_ns -10;
+						}
+					//mdelay(1);
+				}
+				//last_level = level;	
+			}
+			if(level>=100 &&  level <120){
+				duty_ns =   old_duty_ns + 11600  +(level-100)*300;//
+			}
+				if(level>=120 &&  level <130){
+				duty_ns =   old_duty_ns + 17600  +(level-120)*350;//
+			}
+			if(level>=130 &&  level <140){
+				duty_ns =   old_duty_ns + 21100  +(level-130)*400;//
+			}
+			if(level>=140 &&  level <150){
+				duty_ns =   old_duty_ns + 25100  +(level-140)*450;//
+			}
+			if(level>=150 &&  level <=160){
+				duty_ns =   old_duty_ns + 29600 + (level-150)*500;//
+			}
+				if(level>=160 &&  level <170){
+				duty_ns =   old_duty_ns + 34600 + (level-160)*550;//
+			}
+			if(level>=170 &&  level <180){
+				duty_ns =   old_duty_ns + 40100 + (level-170)*600;//
+			}
+			if(level>=180 &&  level <=218){
+				duty_ns =   old_duty_ns + 46100 + (level-180)*650;//
+			}
+		}
+		else{
+			duty_ns =1745 + (level-4)*80;
+		}
+			last_level = level;
+		}
+
+		//printk("\n%s:lidan  ____22222______- duty_ns=%d\n", __func__,duty_ns);
+
+		ret = pwm_config(ctrl->pwm_bl,duty_ns,period_ns);
+#endif
 		if (ret) {
 			pr_err("%s: pwm_config() failed err=%d.\n",
 					__func__, ret);
 			return;
 		}
+#ifndef CONFIG_ZX55Q05_ONLY
 	}
+#endif
 
 	if (!ctrl->pwm_enabled) {
 		ret = pwm_enable(ctrl->pwm_bl);
@@ -190,7 +302,9 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	struct dcs_cmd_req cmdreq;
 	struct mdss_panel_info *pinfo;
 
+#if defined(CONFIG_TEST_ONLY) || defined(CONFIG_TESTPLUS_ONLY) || defined(CONFIG_MIRAGE_ONLY)
 	if (flag != 0) {
+#endif
 	pinfo = &(ctrl->panel_data.panel_info);
 	if (pinfo->dcs_cmd_by_left) {
 		if (ctrl->ndx != DSI_CTRL_LEFT)
@@ -209,11 +323,13 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	cmdreq.cb = NULL;
 
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+#if defined(CONFIG_TEST_ONLY) || defined(CONFIG_TESTPLUS_ONLY) || defined(CONFIG_MIRAGE_ONLY)
 	}
 	else {
 
 		flag = 1;
 	}
+#endif
 }
 
 static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
@@ -1888,6 +2004,10 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
+#ifdef CONFIG_ZX55Q05_ONLY
+	strlcpy(lcd_info_pr,panel_name,strlen(panel_name)+1); //chenjian add for lcd info
+#endif
+
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);

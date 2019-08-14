@@ -186,10 +186,26 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 	mutex_unlock(&ctl->offlock);
 
 	if ((pstatus_data->mfd->panel_power_state == MDSS_PANEL_POWER_ON)) {
+#ifdef CONFIG_ZX55Q05_ONLY
+		if (ret >= 0)
+		{
+			//pr_err("JackChen:MDSS_PANEL_POWER_ON check_status normal\n");
+#else
 		if (ret > 0)
+#endif
 			schedule_delayed_work(&pstatus_data->check_status,
 				msecs_to_jiffies(interval));
+#ifdef CONFIG_ZX55Q05_ONLY
+		}
+#endif
 		else
+#ifdef CONFIG_ZX55Q05_ONLY
+		{
+			pr_err("JackChen:MDSS_PANEL_POWER_ON check_status lcd dead\n");
+#endif
 			mdss_report_panel_dead(pstatus_data);
+#ifdef CONFIG_ZX55Q05_ONLY
+		}
+#endif
 	}
 }

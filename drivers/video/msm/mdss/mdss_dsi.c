@@ -1459,6 +1459,7 @@ end:
 	return dsi_pan_node;
 }
 
+#if defined(CONFIG_TEST_ONLY) || defined(CONFIG_TESTPLUS_ONLY) || defined(CONFIG_MIRAGE_ONLY)
 static const char *buf_lcd_info;
 static struct class *lcd_class;
 
@@ -1493,6 +1494,7 @@ static int create_lcd_info(struct platform_device *pdev, struct device_node *nod
 
 	return rc;
 }
+#endif
 
 static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {
@@ -1644,9 +1646,11 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 	}
 
+#if defined(CONFIG_TEST_ONLY) || defined(CONFIG_TESTPLUS_ONLY) || defined(CONFIG_MIRAGE_ONLY)
 	rc = create_lcd_info(pdev, dsi_pan_node);
 	if (rc < 0)
 		pr_err("%s create lcd info error!\n", __func__);
+#endif
 
 	pr_debug("%s: Dsi Ctrl->%d initialized\n", __func__, index);
 	return 0;

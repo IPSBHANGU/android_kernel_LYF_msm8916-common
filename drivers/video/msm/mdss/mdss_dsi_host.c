@@ -20,9 +20,7 @@
 #include <linux/slab.h>
 #include <linux/iopoll.h>
 #include <linux/kthread.h>
-
 #include <linux/msm_iommu_domains.h>
-
 #include "mdss.h"
 #include "mdss_dsi.h"
 #include "mdss_panel.h"
@@ -75,6 +73,64 @@ struct mdss_dsi_event {
 static struct mdss_dsi_event dsi_event;
 
 static int dsi_event_thread(void *data);
+
+#ifdef CONFIG_ZX55Q05_ONLY
+//chenjian
+struct wr_cmd_payload {
+        u16 addr;
+        u32 data;
+} __packed;
+//static struct dsi_buf dsi_panel_tx_buf;
+//static struct dsi_buf dsi_panel_rx_buf;
+#define DSI_BUF_SIZE    1024
+
+int mipi_d2l_write_reg(struct mdss_dsi_ctrl_pdata *ctrl, u16 reg, u32 data)
+{
+        struct wr_cmd_payload payload;
+        struct dcs_cmd_req cmdreq;
+        struct dsi_cmd_desc cmd_write_reg = {
+        {DTYPE_MAX_PKTSIZE, 1, 0, 1, 5, sizeof(payload)}, (char *)&payload};
+        payload.addr = reg;
+        payload.data = data;
+        memset(&cmdreq, 0, sizeof(cmdreq));
+        cmdreq.cmds = &cmd_write_reg;
+        cmdreq.cmds_cnt = 1;
+        cmdreq.flags =  CMD_REQ_COMMIT|CMD_REQ_LP_MODE;
+        cmdreq.rlen = 0;
+        cmdreq.cb = NULL;
+        mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+
+        return 0;
+}
+
+u32 mipi_d2l_read_reg(struct mdss_dsi_ctrl_pdata *ctrl, u16 reg)
+{
+        u32 data;
+	static struct dsi_buf *dsi_panel_rx_buf;
+	
+        struct dcs_cmd_req cmdreq;
+        struct dsi_cmd_desc cmd_read_reg = {
+        {DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(reg)}, (char *) &reg};
+
+        //{DTYPE_GEN_READ2, 1, 0, 1, 5, sizeof(reg)}, (char *) &reg};
+
+		dsi_panel_rx_buf = &ctrl->rx_buf;//add for err
+
+        mdss_dsi_buf_init(dsi_panel_rx_buf);
+        memset(&cmdreq, 0, sizeof(cmdreq));
+        cmdreq.cmds = &cmd_read_reg;
+        cmdreq.cmds_cnt = 1;
+        cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT|CMD_REQ_HS_MODE;//XIESU========YUANSHI=CMD_REQ_LP_MODE
+        cmdreq.rbuf = dsi_panel_rx_buf->data;
+        cmdreq.rlen = 4;
+        cmdreq.cb = NULL;
+        mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+        data = *(u32 *)dsi_panel_rx_buf->data;
+        return data;
+
+}
+//end
+#endif
 
 void mdss_dsi_ctrl_init(struct device *ctrl_dev,
 			struct mdss_dsi_ctrl_pdata *ctrl)
@@ -1028,7 +1084,7 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	return ret;
 }
 
-static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
+static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)//xiesu====
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo;
@@ -1149,7 +1205,12 @@ void mdss_dsi_ctrl_setup(struct mdss_dsi_ctrl_pdata *ctrl)
 int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int ret = 0;
+#ifndef CONFIG_ZX55Q05_ONLY
 	unsigned long flag;
+#else
+	u32 panel_status,panel_status1,panel_status2,panel_status3;
+	struct mdss_panel_info *pinfo;
+#endif
 
 	if (ctrl_pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -1162,8 +1223,79 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		return 0;
 	}
 
+#ifndef CONFIG_ZX55Q05_ONLY
 	pr_debug("%s: Checking BTA status\n", __func__);
 
+#else
+
+	//pr_err("%s:JacKChen Checking BTA status\n", __func__);
+
+		pinfo = &ctrl_pdata->panel_data.panel_info;//xiesu add
+		
+		///printk(KERN_ERR "JackChen-LCD:MSM8939 LCD xiesu status ret = %s\n",&pinfo->panel_name[0]);
+		
+		if (!strcmp(&pinfo->panel_name[0]/*data*/, "hx8399a 1080p video mode dsi panel")) {
+					//printk(KERN_ERR "JackChen-LCD:MSM8939 LCD xiesu status ret = %s\n",&pinfo->panel_name[0]);
+					mdss_dsi_set_tx_power_mode(0, &ctrl_pdata->panel_data);
+			        panel_status = mipi_d2l_read_reg(ctrl_pdata, 0x09);//0x09
+					mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
+			        panel_status = ntohl(panel_status);
+			        panel_status=(panel_status>>8)&0x00FFFF;
+					//printk(KERN_ERR "JackChen-LCD:MSM8939 LCD status is 0x%x\n",panel_status);
+					if(panel_status != 0x7304)
+			        {      	
+			            ret = -1;			
+						printk(KERN_ERR "JackChen-LCD:MSM8939 LCD hx8399a status ret = %d\n",ret);
+			        }
+		} else if (!strcmp(&pinfo->panel_name[0]/*data*/, "otm1901a 1080p video mode dsi panel")) {
+					//printk(KERN_ERR "JackChen-LCD:MSM8939 LCD xiesu status ret = %s\n",&pinfo->panel_name[0]);
+					mdss_dsi_set_tx_power_mode(0, &ctrl_pdata->panel_data);
+			        panel_status = mipi_d2l_read_reg(ctrl_pdata, 0x0a);//0x09
+					mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
+			        panel_status = ntohl(panel_status);
+			        panel_status=(panel_status>>24)&0x0000FF;
+			        //printk(KERN_ERR "JackChen-LCD:MSM8939 LCD status is 0x%x\n",panel_status);
+			//--------------------------------------------------------------------------------------
+					mdss_dsi_set_tx_power_mode(0, &ctrl_pdata->panel_data);
+					panel_status1 = mipi_d2l_read_reg(ctrl_pdata, 0x0d);//0x0d
+					mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
+					panel_status1 = ntohl(panel_status1);
+					panel_status1=(panel_status1>>24)&0x0000FF;
+					//printk(KERN_ERR "JackChen-LCD:MSM8939 LCD status1 is 0x%x\n",panel_status1);
+						
+			//--------------------------------------------------------------------------------------
+					mdss_dsi_set_tx_power_mode(0, &ctrl_pdata->panel_data);
+					panel_status2 = mipi_d2l_read_reg(ctrl_pdata, 0x0b);//0x0b
+					mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
+					panel_status2 = ntohl(panel_status2);
+					panel_status2=(panel_status2>>24)&0x0000FF;
+					//printk(KERN_ERR "JackChen-LCD:MSM8939 LCD status2 is 0x%x\n",panel_status2);
+			//-------------------------------------------------------------------------------------------
+					mdss_dsi_set_tx_power_mode(0, &ctrl_pdata->panel_data);
+					panel_status3 = mipi_d2l_read_reg(ctrl_pdata, 0x0c);//0x0c
+					mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
+					panel_status3 = ntohl(panel_status3);
+					panel_status3=(panel_status3>>24)&0x0000FF;
+					//printk(KERN_ERR "JackChen-LCD:MSM8939 LCD status3 is 0x%x\n",panel_status3);
+			//-------------------------------------------------------------------------------------------
+
+			        if((panel_status != 0x9c)||(panel_status1 != 0x00)||(panel_status2 != 0x00)||(panel_status3 != 0x07))///0x7304 //0x009c
+			        {      	
+			            ret = -1;			
+						printk(KERN_ERR "JackChen-LCD:MSM8939 LCD OTM1901A status ret = %d\n",ret);
+			        }
+			
+		} 
+			else{
+				pr_err("xiesu ESD read status fail\n");
+			    ret = 0;	
+				}
+		
+
+	
+#endif 
+
+#ifndef CONFIG_ZX55Q05_ONLY
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 	spin_lock_irqsave(&ctrl_pdata->mdp_lock, flag);
 	INIT_COMPLETION(ctrl_pdata->bta_comp);
@@ -1180,6 +1312,7 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	}
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+#endif
 	pr_debug("%s: BTA done with ret: %d\n", __func__, ret);
 
 	return ret;

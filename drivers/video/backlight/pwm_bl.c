@@ -20,12 +20,22 @@
 #include <linux/pwm.h>
 #include <linux/pwm_backlight.h>
 #include <linux/slab.h>
+#ifdef CONFIG_ZX55Q05_ONLY
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <linux/delay.h>
+#include <linux/mutex.h>
+#endif
+
 
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
 	struct device		*dev;
 	unsigned int		period;
 	unsigned int		lth_brightness;
+#ifdef CONFIG_ZX55Q05_ONLY
+	unsigned int		bl_gpio;/*zhangwei add*/
+#endif
 	unsigned int		*levels;
 	int			(*notify)(struct device *,
 					  int brightness);
@@ -35,24 +45,105 @@ struct pwm_bl_data {
 	void			(*exit)(struct device *);
 };
 
+#ifdef CONFIG_ZX55Q05_ONLY
+#define LEVEL_LIMIT 33
+
+static DEFINE_MUTEX(fix_lock);
+
+static int pwm_set_pulse(int brightness, unsigned int gpio_bl)
+{
+		int pulse_count;
+		int bl_level;
+		static int bl_level_last = 1;
+		unsigned long flags;
+		bl_level = LEVEL_LIMIT - brightness;
+		mutex_lock(&fix_lock);
+		if(bl_level == 33)
+		{
+			local_irq_save(flags);
+			gpio_direction_output(gpio_bl, 0);
+			mdelay(10);
+			local_irq_restore(flags);
+			bl_level_last = 0;
+			goto set_bl_return;
+		}
+		
+		if(bl_level == 0)
+		{
+			local_irq_save(flags);
+			gpio_direction_output(gpio_bl, 1);
+			udelay(5);
+			local_irq_restore(flags);
+			goto set_bl_return;
+		}
+			
+		if(bl_level == bl_level_last)
+			goto set_bl_return ;
+			
+		if(bl_level > bl_level_last)
+			pulse_count = bl_level - bl_level_last;
+		else
+			pulse_count = 32 - bl_level_last + bl_level;
+		
+		bl_level_last = bl_level;	
+		
+		while(pulse_count --)
+		{
+			local_irq_save(flags);
+			gpio_direction_output(gpio_bl, 0);
+			udelay(1);
+			gpio_direction_output(gpio_bl, 1);
+			udelay(1);
+			local_irq_restore(flags);
+		}
+		
+set_bl_return:		
+		mutex_unlock(&fix_lock);
+//		gpio_free(gpio_bl);
+		return 0;
+}
+#endif
+
 static int pwm_backlight_update_status(struct backlight_device *bl)
 {
 	struct pwm_bl_data *pb = bl_get_data(bl);
 	int brightness = bl->props.brightness;
+#ifndef CONFIG_ZX55Q05_ONLY
 	int max = bl->props.max_brightness;
+#endif
 
 	if (bl->props.power != FB_BLANK_UNBLANK ||
 	    bl->props.fb_blank != FB_BLANK_UNBLANK ||
 	    bl->props.state & BL_CORE_FBBLANK)
-		brightness = 0;
-
+		{
+			brightness = 0;
+#ifdef CONFIG_ZX55Q05_ONLY
+			pr_debug("[david] -- %s -- 1 -- %d,%d,%d\n", __func__, bl->props.power, bl->props.fb_blank, bl->props.state);
+#endif
+		}
 	if (pb->notify)
-		brightness = pb->notify(pb->dev, brightness);
-
+		{
+			brightness = pb->notify(pb->dev, brightness);
+#ifdef CONFIG_ZX55Q05_ONLY
+			pr_debug("[david] -- %s -- 2\n", __func__);
+#endif
+		}
 	if (brightness == 0) {
+#ifdef CONFIG_ZX55Q05_ONLY
+		pr_debug("[david] -- %s -- 3\n", __func__);
+#else
 		pwm_config(pb->pwm, 0, pb->period);
 		pwm_disable(pb->pwm);
+#endif
+
+#ifdef CONFIG_ZX55Q05_ONLY
+		if(pwm_set_pulse(brightness, pb->bl_gpio))//add by d.z 20141221
+		pr_info("%s, set pulse level fail\n", __func__);
+#endif
 	} else {
+#ifdef CONFIG_ZX55Q05_ONLY
+	pr_debug("[david] -- %s --  4, %d\n\n", __func__, brightness);
+#else
 		int duty_cycle;
 
 		if (pb->levels) {
@@ -66,6 +157,11 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 		     (duty_cycle * (pb->period - pb->lth_brightness) / max);
 		pwm_config(pb->pwm, duty_cycle, pb->period);
 		pwm_enable(pb->pwm);
+#endif
+#ifdef CONFIG_ZX55Q05_ONLY
+		if(pwm_set_pulse(brightness, pb->bl_gpio))//add by d.z 20141221
+		pr_info("%s, set pulse level fail\n", __func__);
+#endif
 	}
 
 	if (pb->notify_after)
@@ -102,6 +198,9 @@ static int pwm_backlight_parse_dt(struct device *dev,
 	int length;
 	u32 value;
 	int ret;
+#ifdef CONFIG_ZX55Q05_ONLY
+	u32 bl_gpio_id;//zhangwei add
+#endif
 
 	if (!node)
 		return -ENODEV;
@@ -133,7 +232,18 @@ static int pwm_backlight_parse_dt(struct device *dev,
 					   &value);
 		if (ret < 0)
 			return ret;
+#ifdef CONFIG_ZX55Q05_ONLY
+//zhangwei add
+		bl_gpio_id = of_get_named_gpio(node, "qcom,bl-gpio", 0);
 
+		if (bl_gpio_id < 0)
+		{
+			pr_err("[david] -- %s -- fail to get bl_gpio\n", __func__);
+			return ret;
+		}
+		data->bl_gpio = bl_gpio_id;
+///add end
+#endif
 		data->dft_brightness = value;
 		data->max_brightness--;
 	}
@@ -171,6 +281,9 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	unsigned int max;
 	int ret;
 
+#ifdef CONFIG_ZX55Q05_ONLY
+	pr_info("[david] -- %s\n", __func__);
+#endif
 	if (!data) {
 		ret = pwm_backlight_parse_dt(&pdev->dev, &defdata);
 		if (ret < 0) {
@@ -206,6 +319,17 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	pb->exit = data->exit;
 	pb->dev = &pdev->dev;
 
+#ifdef CONFIG_ZX55Q05_ONLY
+	//modify by david
+	ret = gpio_request(data->bl_gpio, "bl_gpio_id");
+	if(ret < 0)
+	{
+		printk("[david] -- %s -- fail to apply bl_gpio\n" , __func__);
+		goto err_alloc;
+	}
+	pb->bl_gpio = data->bl_gpio;
+	pr_info("[david] -- %s -- get bl_gpio\n", __func__);
+#else
 	pb->pwm = devm_pwm_get(&pdev->dev, NULL);
 	if (IS_ERR(pb->pwm)) {
 		dev_err(&pdev->dev, "unable to request PWM, trying legacy API\n");
@@ -219,7 +343,6 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 	}
 
 	dev_dbg(&pdev->dev, "got pwm for backlight\n");
-
 	/*
 	 * The DT case will set the pwm_period_ns field to 0 and store the
 	 * period, parsed from the DT, in the PWM device. For the non-DT case,
@@ -230,7 +353,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 
 	pb->period = pwm_get_period(pb->pwm);
 	pb->lth_brightness = data->lth_brightness * (pb->period / max);
-
+#endif
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.type = BACKLIGHT_RAW;
 	props.max_brightness = data->max_brightness;
@@ -279,11 +402,19 @@ static int pwm_backlight_suspend(struct device *dev)
 {
 	struct backlight_device *bl = dev_get_drvdata(dev);
 	struct pwm_bl_data *pb = bl_get_data(bl);
+#ifdef CONFIG_ZX55Q05_ONLY
+	pr_debug("[david] -- %s", __func__);
+#endif
 
 	if (pb->notify)
 		pb->notify(pb->dev, 0);
+#ifndef CONFIG_ZX55Q05_ONLY
 	pwm_config(pb->pwm, 0, pb->period);
 	pwm_disable(pb->pwm);
+#else
+	if(pwm_set_pulse(0, pb->bl_gpio))//add by d.z 20141221
+		pr_info("%s, set pulse level fail\n", __func__);
+#endif
 	if (pb->notify_after)
 		pb->notify_after(pb->dev, 0);
 	return 0;
@@ -292,7 +423,12 @@ static int pwm_backlight_suspend(struct device *dev)
 static int pwm_backlight_resume(struct device *dev)
 {
 	struct backlight_device *bl = dev_get_drvdata(dev);
-
+#ifdef CONFIG_ZX55Q05_ONLY
+	struct pwm_bl_data *pb = bl_get_data(bl);
+	pr_debug("[david] -- %s", __func__);
+	if(pwm_set_pulse(LEVEL_LIMIT, pb->bl_gpio))//add by d.z 20141221
+		pr_info("%s, set pulse level fail\n", __func__);
+#endif
 	backlight_update_status(bl);
 	return 0;
 }

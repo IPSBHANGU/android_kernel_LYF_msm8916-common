@@ -74,6 +74,10 @@
 static struct fb_info *fbi_list[MAX_FBI_LIST];
 static int fbi_list_index;
 
+#ifdef CONFIG_ZX55Q05_ONLY
+extern char lcd_info_pr[];  //chenjian add for lcd info
+#endif
+
 static u32 mdss_fb_pseudo_palette[16] = {
 	0x00000000, 0xffffffff, 0xffffffff, 0xffffffff,
 	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
@@ -745,6 +749,62 @@ static void mdss_fb_shutdown(struct platform_device *pdev)
 	unlock_fb_info(mfd->fbi);
 }
 
+#ifdef CONFIG_ZX55Q05_ONLY
+/*chenjian add for lcd info start*/
+static ssize_t lcd_name_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {
+
+  
+  if(lcd_info_pr!=NULL) 
+  {	
+    if(strstr(lcd_info_pr,"hx8399a"))
+          return sprintf(buf,"ic:hx8399a module:liansi resolution:1080x1920\n");
+    else if(strstr(lcd_info_pr,"otm1901a"))
+          return sprintf(buf,"ic:otm1901a module:tianma resolution:1080x1920\n");
+    else
+	   return sprintf(buf,"ili9806e-txd");
+  	
+   }
+  else
+       return sprintf(buf,"no-panel-info");
+}
+
+static struct kobj_attribute lcd_name_show_attr = { 
+ .attr = {
+        .name = "name",
+        .mode = S_IRUGO, 
+        },
+    .show = &lcd_name_show, 
+ };
+static struct attribute *properties_attrs[] = {
+       &lcd_name_show_attr.attr,
+	NULL
+};
+static struct attribute_group properties_attr_group = {
+	.attrs = properties_attrs,
+};
+static void lcd_name_show_init(void)
+{
+	int ret;
+	struct kobject *properties_kobj;
+	//added by yuyuanjiang for "hipad_lcd_info" run once  --start
+	static bool hipad_first_time = true;
+	
+	if (hipad_first_time)
+	   {
+			hipad_first_time = false;
+			properties_kobj = kobject_create_and_add("hipad_lcd_info", NULL); //modified by yuyuanjiang of bugzilla  
+	   
+			if (properties_kobj)
+				ret = sysfs_create_group(properties_kobj,
+						&properties_attr_group);
+			if (!properties_kobj || ret)
+				pr_err("failed to create lcd_info\n");    
+	    }
+	//added by yuyuanjiang for "hipad_lcd_info" run once  --end
+}
+/*chenjian add for lcd info end*/
+#endif
+
 static int mdss_fb_probe(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = NULL;
@@ -886,6 +946,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 		mfd->mdp.splash_init_fnc(mfd);
 
 	INIT_DELAYED_WORK(&mfd->idle_notify_work, __mdss_fb_idle_notify_work);
+
+#ifdef CONFIG_ZX55Q05_ONLY
+	lcd_name_show_init(); //chenjian add for lcd info
+#endif
 
 	return rc;
 }
