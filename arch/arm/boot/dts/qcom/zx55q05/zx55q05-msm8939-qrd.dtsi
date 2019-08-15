@@ -15,11 +15,11 @@
 #include "dsi-panel-nt35596-1080p-skuk-video.dtsi"
 #include "dsi-panel-nt35595-1080p-skuk-video.dtsi"
 #include "zx55q05-msm8939-pinctrl.dtsi"
-/*
+
 &blsp1_uart1 {
 	status = "disabled";
 };
-*/
+
 &blsp1_uart2 {
 	status = "ok";
 	pinctrl-names = "default";
@@ -188,6 +188,10 @@
 
 &android_usb {
 	qcom,android-usb-cdrom;
+};
+
+&spi_5 {
+	status = "disabled";
 };
 
 &apc_vreg_corner {

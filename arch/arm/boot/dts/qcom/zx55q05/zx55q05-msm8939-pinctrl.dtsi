@@ -126,7 +126,6 @@
 			};
 		};
 
-/*
 		blsp1_uart1_active {
 			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
 			qcom,num-grp-pins = <3>;
@@ -150,7 +149,7 @@
 			        bias-disable;
 			};
 		};
-*/
+
 		sdhc2_cd_pin {
 			qcom,pins = <&gp 38>;
 			qcom,num-grp-pins = <1>;
@@ -413,7 +412,7 @@
 			        bias-pull-down; /* PULL Down */
 			};
 		};
-/*
+
 		spi5_active {
                         qcom,pins = <&gp 16>, <&gp 17>, <&gp 19>;
                         qcom,num-grp-pins = <3>;
@@ -458,7 +457,7 @@
                                 bias-disable = <0>;
                         };
                 };
-*/
+
 		wcnss_pmux_gpio: wcnss_pmux_gpio {
 			/* Uses general purpose pins */
 			qcom,pins = <&gp 40>, <&gp 41>,
