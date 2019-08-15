@@ -530,7 +530,12 @@ static void wcd_mbhc_set_and_turnoff_hph_padac(struct wcd_mbhc *mbhc)
 	} else {
 		pr_debug("%s PA is off\n", __func__);
 	}
+#ifndef CONFIG_ZX55Q05_ONLY
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPH_PA_EN, 0);
+#else
+	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPH_PA_EN, 16);
+       //0x00->0x10,Bug 69777 - 【通话】插上耳机进行通话，通话过程中打开免提，然后拔掉耳机，通话无声音
+#endif
 	usleep_range(wg_time * 1000, wg_time * 1000 + 50);
 }
 

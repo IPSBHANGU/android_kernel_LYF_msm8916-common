@@ -85,6 +85,10 @@ static int mi2s_tx_sample_rate = SAMPLING_RATE_48KHZ;
 static int msm_proxy_rx_ch = 2;
 static int msm8909_auxpcm_rate = 8000;
 
+#ifdef CONFIG_ZX55Q05_ONLY
+int ext_spk_pa_gpio = -1;
+#endif
+
 static atomic_t quat_mi2s_clk_ref;
 static atomic_t auxpcm_mi2s_clk_ref;
 
@@ -2880,10 +2884,33 @@ static bool msm8x16_swap_gnd_mic(struct snd_soc_codec *codec)
 	return true;
 }
 
+#ifdef CONFIG_ZX55Q05_ONLY
+static int msm8x16_ext_spk_pa_init(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	ext_spk_pa_gpio = of_get_named_gpio(pdev->dev.of_node, "qcom,ext-spk-amp-gpio", 0);
+	if (gpio_is_valid(ext_spk_pa_gpio)) {
+		ret = gpio_request(ext_spk_pa_gpio, "ext_spk_amp_gpio");
+		if (ret) {
+			pr_err("%s: gpio_request failed for ext_spk_amp_gpio.\n", __func__);
+			return -EINVAL;
+		}
+		gpio_direction_output(ext_spk_pa_gpio, 0);
+	}
+
+	return 0;
+}
+#endif
+
 static int msm8x16_setup_hs_jack(struct platform_device *pdev,
 			struct msm8916_asoc_mach_data *pdata)
 {
 	struct pinctrl *pinctrl;
+
+#ifdef CONFIG_ZX55Q05_ONLY
+	msm8x16_ext_spk_pa_init(pdev);
+#endif
 
 	pdata->us_euro_gpio = of_get_named_gpio(pdev->dev.of_node,
 					"qcom,cdc-us-euro-gpios", 0);
@@ -3502,6 +3529,10 @@ static int msm8x16_asoc_machine_remove(struct platform_device *pdev)
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
+#ifdef CONFIG_ZX55Q05_ONLY
+	if (gpio_is_valid(ext_spk_pa_gpio))
+		gpio_free(ext_spk_pa_gpio);
+#endif
 	if (pdata->vaddr_gpio_mux_spkr_ctl)
 		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
 	if (pdata->vaddr_gpio_mux_mic_ctl)

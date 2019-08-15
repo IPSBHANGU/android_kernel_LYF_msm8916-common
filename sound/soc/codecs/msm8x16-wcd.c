@@ -80,6 +80,9 @@
  */
 #define ADSP_STATE_READY_TIMEOUT_MS 50
 
+#ifdef CONFIG_ZX55Q05_ONLY
+static bool current_ext_spk_pa_state = false;
+#endif
 #define HPHL_PA_DISABLE (0x01 << 1)
 #define HPHR_PA_DISABLE (0x01 << 2)
 #define EAR_PA_DISABLE (0x01 << 3)
@@ -128,6 +131,7 @@ enum {
 	RX_MIX1_INP_SEL_RX3,
 };
 
+#ifndef CONFIG_ZX55Q05_ONLY
 enum{
 	MODE_1 = 0,
 	MODE_2,
@@ -136,6 +140,7 @@ enum{
 };
 
 static int test_spk_pa_mode = 0;
+#endif
 
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
@@ -2114,7 +2119,7 @@ static int test_spk_pa_set(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
 	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
-		__func__, ucontrol->value.integer.value[0]);
+		 __func__, ucontrol->value.integer.value[0]);
 
 	switch (ucontrol->value.integer.value[0]) {
 	case 0:
@@ -2138,6 +2143,84 @@ static int test_spk_pa_set(struct snd_kcontrol *kcontrol,
 		__func__, test_spk_pa_mode);
 	return 0;
 }
+#endif
+
+#ifdef CONFIG_ZX55Q05_ONLY
+static void set_gpio_enable(struct msm8x16_wcd_priv *msm8x16_wcd)
+{
+	//printk(KERN_ERR "%s:JackChen in here\n", __func__);
+	gpio_direction_output(ext_spk_pa_gpio, 1);  
+        udelay(2);
+        gpio_direction_output(ext_spk_pa_gpio, 0);  
+        udelay(2);
+       	gpio_direction_output(ext_spk_pa_gpio, 1);
+        current_ext_spk_pa_state = true; 	
+}
+
+static void set_gpio_enable_work(struct work_struct *work)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd_priv = container_of(work, struct msm8x16_wcd_priv,
+						  work.work);
+
+	set_gpio_enable(msm8x16_wcd_priv);
+}
+
+static int msm8x16_wcd_ext_spk_get(struct snd_kcontrol *kcontrol, 
+				struct snd_ctl_elem_value *ucontrol) 
+{ 
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol); 
+
+	if (current_ext_spk_pa_state == false) { 
+		ucontrol->value.integer.value[0] = 0; 
+	} else if (current_ext_spk_pa_state == true) { 
+		ucontrol->value.integer.value[0] = 1; 
+	} else { 
+		dev_err(codec->dev, "%s: ERROR: Unsupported Speaker ext = %d\n", __func__, current_ext_spk_pa_state); 
+		return -EINVAL; 
+	} 
+
+	//dev_err(codec->dev, "%s: current_ext_spk_pa_state = %d\n", __func__, current_ext_spk_pa_state); 
+
+	return 0; 
+} 
+
+static int msm8x16_wcd_ext_spk_set(struct snd_kcontrol *kcontrol, 
+				struct snd_ctl_elem_value *ucontrol) 
+{ 
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	//dev_err(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n", __func__, ucontrol->value.integer.value[0]); 
+
+	switch (ucontrol->value.integer.value[0]) { 
+	case 0: 
+		if(gpio_is_valid(ext_spk_pa_gpio)){ 
+			gpio_direction_output(ext_spk_pa_gpio, 0); 
+			current_ext_spk_pa_state = false;
+		} 
+		break; 
+	case 1: 
+		if(gpio_is_valid(ext_spk_pa_gpio)){	
+			#if 0	
+			gpio_direction_output(ext_spk_pa_gpio, 1); 
+			udelay(2);
+			gpio_direction_output(ext_spk_pa_gpio, 0); 
+			udelay(2);
+			gpio_direction_output(ext_spk_pa_gpio, 1);
+			current_ext_spk_pa_state = true; 
+			#endif
+			schedule_delayed_work(&msm8x16_wcd->work, msecs_to_jiffies(10));
+			//modify for bug 70396
+			} 
+		break; 
+	default: 
+		return -EINVAL; 
+	}
+
+	//dev_err(codec->dev, "%s: current_ext_spk_pa_state = %d\n", __func__, current_ext_spk_pa_state); 
+
+	return 0; 
+} 
 #endif
 
 static int msm8x16_wcd_boost_option_get(struct snd_kcontrol *kcontrol,
@@ -2517,8 +2600,13 @@ static const char * const test_spk_pa_ctrl_text[] = {
 static const struct soc_enum test_spk_pa_ctl_enum[] = {
 		SOC_ENUM_SINGLE_EXT(4, test_spk_pa_ctrl_text),
 };
+#elif defined(CONFIG_ZX55Q05_ONLY)
+static const char * const msm8x16_wcd_ext_spk_ctrl_text[] = {
+		"DISABLE", "ENABLE"};
+static const struct soc_enum msm8x16_wcd_ext_spk_ctl_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, msm8x16_wcd_ext_spk_ctrl_text),
+};
 #endif
-
 static const char * const msm8x16_wcd_ext_spk_boost_ctrl_text[] = {
 		"DISABLE", "ENABLE"};
 static const struct soc_enum msm8x16_wcd_ext_spk_boost_ctl_enum[] = {
@@ -2562,6 +2650,11 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
 	SOC_ENUM_EXT("Speaker Boost", msm8x16_wcd_spk_boost_ctl_enum[0],
 		msm8x16_wcd_spk_boost_get, msm8x16_wcd_spk_boost_set),
+
+#ifdef CONFIG_ZX55Q05_ONLY
+	SOC_ENUM_EXT("Speaker Ext", msm8x16_wcd_ext_spk_ctl_enum[0],
+		msm8x16_wcd_ext_spk_get, msm8x16_wcd_ext_spk_set),
+#endif
 
 	SOC_ENUM_EXT("Ext Spk Boost", msm8x16_wcd_ext_spk_boost_ctl_enum[0],
 		msm8x16_wcd_ext_spk_boost_get, msm8x16_wcd_ext_spk_boost_set),
@@ -4672,21 +4765,27 @@ static int msm8x16_wcd_codec_enable_spk_ext_pa(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+#ifndef CONFIG_ZX55Q05_ONLY
 	int i=0;
+#endif
 	dev_dbg(codec->dev, "%s: %s event = %d\n", __func__, w->name, event);
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		dev_dbg(w->codec->dev,
 			"%s: enable external speaker PA\n", __func__);
 		if (msm8x16_wcd->codec_spk_ext_pa_cb)
+#ifndef CONFIG_ZX55Q05_ONLY
 			for(i = 0;i<test_spk_pa_mode;i++){
 				msm8x16_wcd->codec_spk_ext_pa_cb(codec, 1);
 				udelay(2);
 				msm8x16_wcd->codec_spk_ext_pa_cb(codec, 0);
 				udelay(2);
 			}
+#endif
 			msm8x16_wcd->codec_spk_ext_pa_cb(codec, 1);
+#ifndef CONFIG_ZX55Q05_ONLY
 			mdelay(20);
+#endif
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		dev_dbg(w->codec->dev,
@@ -5580,6 +5679,10 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 		registered_codec = NULL;
 		return -ENOMEM;
 	}
+#ifdef CONFIG_ZX55Q05_ONLY
+	//chenjian
+	INIT_DELAYED_WORK(&msm8x16_wcd_priv->work, set_gpio_enable_work);
+#endif
 	return 0;
 }
 
@@ -5594,6 +5697,12 @@ static int msm8x16_wcd_codec_remove(struct snd_soc_codec *codec)
 	msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].supply = NULL;
 	atomic_set(&msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
 	iounmap(msm8x16_wcd->dig_base);
+
+#ifdef CONFIG_ZX55Q05_ONLY
+	//chenjian
+	cancel_delayed_work_sync(&msm8x16_wcd_priv->work);
+#endif
+
 	kfree(msm8x16_wcd_priv->fw_data);
 	kfree(msm8x16_wcd_priv);
 
