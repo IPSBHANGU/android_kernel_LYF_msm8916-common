@@ -22,9 +22,6 @@
 #include <linux/printk.h>
 #include <linux/list.h>
 #include <linux/pinctrl/consumer.h>
-#ifdef CONFIG_ZX55Q05_ONLY
-#include <linux/delay.h>
-#endif
 
 /* #define CONFIG_GPIO_FLASH_DEBUG */
 /*
@@ -43,28 +40,20 @@
 #define GPIO_OUT_LOW          (0 << 1)
 #define GPIO_OUT_HIGH         (1 << 1)
 
-#ifdef CONFIG_TEST_ONLY
-int number_pin=3; //Jelly add for detect whether the forth pin of the gpio is specified for led
-#else
-int number_pin=2; //Just a HAX
-#endif
+int number_pin=3; //Jelly add for detect whether the forth pin of the gpio is specified for led 
 
 
 enum msm_flash_seq_type_t {
 	FLASH_EN,
 	FLASH_NOW,
-#ifdef CONFIG_TEST_ONLY
 	TORCH_EN,
 	ENABLE_MULTI,
-#endif
 };
 
 struct msm_flash_ctrl_seq {
 	enum msm_flash_seq_type_t seq_type;
 	uint8_t flash_on_val;
-#ifdef CONFIG_TEST_ONLY
 	uint8_t pre_on_val;
-#endif
 	uint8_t torch_on_val;
 	uint8_t flash_off_val;
 };
@@ -72,54 +61,23 @@ struct msm_flash_ctrl_seq {
 struct led_gpio_flash_data {
 	int flash_en;
 	int flash_now;
-#ifdef CONFIG_TEST_ONLY
 	int torch_en;
 	int rear_enable;
 	int front_enable;
-#endif
 	int brightness;
 	struct led_classdev cdev;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *gpio_state_default;
-#ifdef CONFIG_TEST_ONLY
 	struct msm_flash_ctrl_seq ctrl_seq[4];
-#else
-	struct msm_flash_ctrl_seq ctrl_seq[2];
-#endif
 };
 
-#ifdef CONFIG_TEST_ONLY
 extern uint32_t get_camera_id(void);
-#endif
+
 
 static struct of_device_id led_gpio_flash_of_match[] = {
 	{.compatible = LED_GPIO_FLASH_DRIVER_NAME,},
 	{},
 };
-
-#ifdef CONFIG_ZX55Q05_ONLY
-static void led_ktd262_brightness_set(struct led_classdev *led_cdev,int count)
-{
-	int i = 0;
-	unsigned long flags;
-	struct led_gpio_flash_data *flash_led =
-	    container_of(led_cdev, struct led_gpio_flash_data, cdev);
-
-	pr_err("tanyijun %s %d count = %d \n",__func__,__LINE__,count);
-
-	local_irq_save(flags);
-	gpio_direction_output(flash_led->flash_en, 0);
-	
-	for(i=0;i<count;i++)
-	{
-		gpio_direction_output(flash_led->flash_now, 0);
-		udelay(120);
-		gpio_direction_output(flash_led->flash_now, 1);
-		udelay(120);
-	}
-	local_irq_restore(flags);
-}
-#endif
 
 static void led_gpio_brightness_set(struct led_classdev *led_cdev,
 				    enum led_brightness value)
@@ -129,7 +87,6 @@ static void led_gpio_brightness_set(struct led_classdev *led_cdev,
 	    container_of(led_cdev, struct led_gpio_flash_data, cdev);
 
 	int brightness = value;
-#ifdef CONFIG_TEST_ONLY
 	int flash_en = 0, flash_now = 0, torch_en = 0, enable_multi = 0;
     if(brightness > LED_PRE){
 		flash_en  = flash_led->ctrl_seq[FLASH_EN].flash_on_val;
@@ -155,67 +112,7 @@ static void led_gpio_brightness_set(struct led_classdev *led_cdev,
 	}
 	CDBG("%s:flash_en=%d, flash_now=%d, torch_en=%d, enable_multi=%d,brightness = %d\n", __func__,
 		flash_en, flash_now,torch_en,enable_multi,brightness);
-#elif defined (CONFIG_ZX55Q05_ONLY)
-	int flash_en = 0, flash_now = 0;
 
-	if (brightness > LED_HALF) {
-		led_ktd262_brightness_set(led_cdev,16);
-	} else if (brightness > LED_OFF) {
-		flash_en =
-			flash_led->ctrl_seq[FLASH_EN].torch_on_val;
-		flash_now =
-			flash_led->ctrl_seq[FLASH_NOW].torch_on_val;
-		rc = gpio_direction_output(flash_led->flash_en, flash_en);
-		if (rc) {
-			pr_err("%s: Failed to set gpio %d\n", __func__,
-			       flash_led->flash_en);
-			goto err;
-		}
-		rc = gpio_direction_output(flash_led->flash_now, flash_now);
-		if (rc) {
-			pr_err("%s: Failed to set gpio %d\n", __func__,
-			       flash_led->flash_now);
-			goto err;
-		}
- 	} else {
-			flash_en = 0;
-  		        flash_now = 0;
-
-			rc = gpio_direction_output(flash_led->flash_en, flash_en);
-			if (rc) {
-				pr_err("%s: Failed to set gpio %d\n", __func__,
-				       flash_led->flash_en);
-				goto err;
-			}
-			rc = gpio_direction_output(flash_led->flash_now, flash_now);
-			if (rc) {
-				pr_err("%s: Failed to set gpio %d\n", __func__,
-				       flash_led->flash_now);
-				goto err;
-			}
-			udelay(650);
-	}
-#else
-	int flash_en = 0, flash_now = 0;
-
-	if (brightness > LED_HALF) {
-		flash_en =
-			flash_led->ctrl_seq[FLASH_EN].flash_on_val;
-		flash_now =
-			flash_led->ctrl_seq[FLASH_NOW].flash_on_val;
-	} else if (brightness > LED_OFF) {
-		flash_en =
-			flash_led->ctrl_seq[FLASH_EN].torch_on_val;
-		flash_now =
-			flash_led->ctrl_seq[FLASH_NOW].torch_on_val;
-	} else {
-		flash_en = 0;
-		flash_now = 0;
-	}
-	CDBG("%s:flash_en=%d, flash_now=%d\n", __func__, flash_en, flash_now);
-#endif
-
-#ifndef CONFIG_ZX55Q05_ONLY
 	rc = gpio_direction_output(flash_led->flash_en, flash_en);
 	if (rc) {
 		pr_err("%s: Failed to set gpio %d\n", __func__,
@@ -234,9 +131,7 @@ static void led_gpio_brightness_set(struct led_classdev *led_cdev,
 		       flash_led->torch_en);
 		goto err;
 	}
-#endif
 
-#ifdef CONFIG_TEST_ONLY
 /*Jelly add for detect whether the forth pin of the gpio is specified 2015/4/18*/
 if (number_pin==4){
 	if(get_camera_id() == 1){
@@ -255,7 +150,6 @@ if (number_pin==4){
 	    }
 	}
 }//endif Jelly add for detect whether the forth pin of the gpio is specified 2015/4/18
-#endif
 	flash_led->brightness = brightness;
 err:
 	return;
@@ -276,19 +170,12 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 	struct led_gpio_flash_data *flash_led = NULL;
 	struct device_node *node = pdev->dev.of_node;
 	const char *seq_name = NULL;
-#ifdef CONFIG_TEST_ONLY
 	uint32_t array_flash_seq[4];
 	uint32_t array_pre_seq[4];
 	uint32_t array_torch_seq[4];
-#else
-	uint32_t array_flash_seq[2];
-	uint32_t array_torch_seq[2];
-#endif
 	int i = 0;
 
-#ifdef CONFIG_TEST_ONLY
 	printk("<1>yulinghan led_gpio_flash_probe !!!!!!!!!11");
-#endif
 	flash_led = devm_kzalloc(&pdev->dev, sizeof(struct led_gpio_flash_data),
 				 GFP_KERNEL);
 	if (flash_led == NULL) {
@@ -309,11 +196,7 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 	}
 
 	flash_led->gpio_state_default = pinctrl_lookup_state(flash_led->pinctrl,
-#ifdef CONFIG_ZX55Q05_ONLY
-		"camera_flash_ktd262_default");
-#else
 		"flash_default");
-#endif
 	if (IS_ERR(flash_led->gpio_state_default)) {
 		pr_err("%s:can not get active pinstate\n", __func__);
 		return -EINVAL;
@@ -347,11 +230,9 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 			"Looking up %s property in node %s failed. rc =  %d\n",
 			"flash-now", node->full_name, flash_led->flash_now);
 		goto error;
-#ifdef CONFIG_TEST_ONLY
 	/*+++ wangzhihong add for led flash use two gpios 20150420*/
 	}else if(flash_led->flash_en == flash_led->flash_now){
 		dev_err(&pdev->dev,"skip request flash_now gpio.\n");
-#endif
 	} else {
 		rc = gpio_request(flash_led->flash_now, "FLASH_NOW");
 		if (rc) {
@@ -362,7 +243,6 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 		}
 	}
 
-#ifdef CONFIG_TEST_ONLY
 	flash_led->torch_en = of_get_named_gpio(node, "qcom,torch-en", 0);
 	if (flash_led->torch_en < 0) {
 		dev_err(&pdev->dev,
@@ -421,8 +301,7 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 	}
 
 	}/*end if  Jelly add for whether property is  specified2015/4/18*/
-#endif
-
+      
 	rc = of_property_read_string(node, "linux,name", &flash_led->cdev.name);
 	if (rc) {
 		dev_err(&pdev->dev, "%s: Failed to read linux name. rc = %d\n",
@@ -438,8 +317,7 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 			__func__, __LINE__);
 		goto error;
 	}
-
-#ifdef CONFIG_TEST_ONLY
+	
 	rc = of_property_read_u32_array(node, "qcom,pre-seq-val",
 		array_pre_seq, number_pin);
 
@@ -448,7 +326,6 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 			__func__, __LINE__);
 		goto error;
 	}
-#endif
 
 	rc = of_property_read_u32_array(node, "qcom,torch-seq-val",
 		array_torch_seq, number_pin);
@@ -480,14 +357,14 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 			else
 				flash_led->ctrl_seq[FLASH_EN].flash_on_val =
 					GPIO_OUT_HIGH;
-#ifdef CONFIG_TEST_ONLY
+
             if (array_pre_seq[i] == 0)
 				flash_led->ctrl_seq[FLASH_EN].pre_on_val =
 					GPIO_OUT_LOW;
 			else
 				flash_led->ctrl_seq[FLASH_EN].pre_on_val =
 					GPIO_OUT_HIGH;
-#endif
+
 			if (array_torch_seq[i] == 0)
 				flash_led->ctrl_seq[FLASH_EN].torch_on_val =
 					GPIO_OUT_LOW;
@@ -505,14 +382,13 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 			else
 				flash_led->ctrl_seq[FLASH_NOW].flash_on_val =
 					GPIO_OUT_HIGH;
-#ifdef CONFIG_TEST_ONLY
+			
             if (array_pre_seq[i] == 0)
 				flash_led->ctrl_seq[FLASH_NOW].pre_on_val =
 					GPIO_OUT_LOW;
 			else
 				flash_led->ctrl_seq[FLASH_NOW].pre_on_val =
 					GPIO_OUT_HIGH;
-#endif
 
 			if (array_torch_seq[i] == 0)
 				flash_led->ctrl_seq[FLASH_NOW].torch_on_val =
@@ -520,7 +396,6 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 			 else
 				flash_led->ctrl_seq[FLASH_NOW].torch_on_val =
 					GPIO_OUT_HIGH;
-#ifdef CONFIG_TEST_ONLY
 		} else if (!strcmp(seq_name, "torch_en")) {
 			flash_led->ctrl_seq[TORCH_EN].seq_type =
 				TORCH_EN;
@@ -573,9 +448,6 @@ int led_gpio_flash_probe(struct platform_device *pdev)
 				flash_led->ctrl_seq[ENABLE_MULTI].torch_on_val =
 					GPIO_OUT_HIGH;
 		}
-#else
-		}
-#endif
 	}
 
 	platform_set_drvdata(pdev, flash_led);
@@ -622,9 +494,7 @@ static struct platform_driver led_gpio_flash_driver = {
 
 static int __init led_gpio_flash_init(void)
 {
-#ifdef CONFIG_TEST_ONLY
 	printk("<1>yulinghan led_gpio_flash_init\n");
-#endif
 	return platform_driver_register(&led_gpio_flash_driver);
 }
 
