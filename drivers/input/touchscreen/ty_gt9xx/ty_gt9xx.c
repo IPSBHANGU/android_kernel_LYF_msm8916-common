@@ -1774,7 +1774,7 @@ static ssize_t gt91xx_config_write_proc(struct file *filp, const char __user *bu
     s32 ret = 0;
 	struct goodix_ts_data *ts = i2c_get_clientdata(i2c_connect_client);
 
-    GTP_DEBUG("write count %d\n", count);
+    GTP_DEBUG("write count %d\n", (int)count);
 
     if (count > GTP_CONFIG_MAX_LENGTH)
     {
@@ -1979,7 +1979,7 @@ static s8 gtp_request_input_dev(struct goodix_ts_data *ts)
 
     ts->input_dev->evbit[0] = BIT_MASK(EV_SYN) | BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS) ;
 #if GTP_ICS_SLOT_REPORT
-    input_mt_init_slots(ts->input_dev, 16);     // in case of "out of memory"
+    input_mt_init_slots(ts->input_dev, 16, 0);     // in case of "out of memory"
 #else
     ts->input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 #endif
@@ -3600,7 +3600,7 @@ static int touch_ctrl_init(void *touch)
 	class_destroy(ty_touch_ctrl.class);
   }
 
-  return (int)touch; 
+  return 0; 
 } 
  
 #if 0 
@@ -3916,7 +3916,7 @@ Output:
 	ty_creat_virtual_key_sysfs();
 #endif
 #if  TY_TP_IOCTRL
-	touch_ctrl_init(NULL);
+	touch_ctrl_init(0);
 #endif
 #if	 TY_TP_SYSFS
 	create_touchscreen_identification_sysfs();
@@ -4537,7 +4537,7 @@ Input:
 Output:
     Executive Outcomes. 0---succeed.
 ********************************************************/
-static int __devinit goodix_ts_init(void)
+static int __init goodix_ts_init(void)
 {
     s32 ret;
 

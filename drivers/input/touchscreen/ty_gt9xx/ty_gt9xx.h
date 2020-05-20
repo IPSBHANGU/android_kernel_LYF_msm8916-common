@@ -36,7 +36,7 @@
 #include <linux/vmalloc.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
-#include <mach/gpio.h>
+#include <linux/gpio.h>
 #if defined(CONFIG_FB)
 #include <linux/notifier.h>
 #include <linux/fb.h>
@@ -104,7 +104,7 @@ struct goodix_ts_platform_data {
 	bool i2c_pull_up;
 	bool enable_power_off;
 	int cfg_count[GOODIX_MAX_CFG_GROUP+1];
-	size_t config_data_len[GOODIX_MAX_CFG_GROUP];
+	int config_data_len[GOODIX_MAX_CFG_GROUP];
 	u8 *config_data[GOODIX_MAX_CFG_GROUP];
 };
 struct goodix_ts_data {
