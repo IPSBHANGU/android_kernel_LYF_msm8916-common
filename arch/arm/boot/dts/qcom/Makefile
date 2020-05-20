@@ -88,6 +88,8 @@ else ifeq ($(CONFIG_MIRAGE_ONLY),y)
 dtb-$(CONFIG_ARCH_MSM8916) += mirage01a-msm8939-qrd-skuk.dtb
 else ifeq ($(CONFIG_ZX55Q05_ONLY),y)
 dtb-$(CONFIG_ARCH_MSM8916) += zx55q05-qrd-skuk.dtb
+else ifeq ($(CONFIG_TBW5770A2_ONLY),y)
+dtb-$(CONFIG_ARCH_MSM8916) += msm8916-qrd-skui-TBW5770A2.dtb
 else
 dtb-$(CONFIG_ARCH_MSM8916) += msm8916-cdp.dtb \
 	msm8916-cdp-smb1360.dtb \

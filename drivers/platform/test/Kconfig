@@ -27,3 +27,10 @@ config ZX55Q05_ONLY
         help
           Support for LYF zx55q05 variants
           make macro CONFIG_ZX55Q05_ONLY WORKED
+
+config TBW5770A2_ONLY
+	bool "LYF TBW5770A2"
+	depends on ARCH_MSM8916
+	help
+	  Support for LYF TBW5770A2 variants
+	  make macro CONFIG_TBW5770A2_ONLY WORKED
