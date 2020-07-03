@@ -1907,7 +1907,7 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 		acquire_AC_charger_wakelock();
     }
 	if(charger_type == POWER_SUPPLY_TYPE_USB){
-		set_android_charging_enable();	
+		set_android_charging_enable();
 	}
 	//wuboadd end
 #endif
@@ -3317,7 +3317,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 				case USB_PROPRIETARY_CHARGER:
 					msm_otg_notify_charger(motg,
 							IDEV_CHG_MAX);
-#ifdef CONFIG_ZX55Q05_ONLY
+#if !defined(CONFIG_TEST_ONLY) || !defined(CONFIG_TESTPLUS_ONLY) || !defined(CONFIG_ZX55Q05_ONLY)
 					otg->phy->state =
 						OTG_STATE_B_CHARGER;
 					work = 0;
@@ -3337,6 +3337,12 @@ static void msm_otg_sm_work(struct work_struct *w)
                                         work = 0;
 #endif
 
+
+#if !defined(CONFIG_TEST_ONLY) || !defined(CONFIG_TESTPLUS_ONLY)
+					otg->phy->state =
+						OTG_STATE_B_CHARGER;
+					work = 0;
+#endif
 					msm_otg_dbg_log_event(&motg->phy,
 					"PM RUNTIME: FLCHG PUT",
 					get_pm_runtime_counter(otg->phy->dev),
@@ -3737,6 +3743,18 @@ static void msm_otg_sm_work(struct work_struct *w)
 				work = 1;
 		}
 		break;
+#if !defined(CONFIG_TEST_ONLY) || !defined(CONFIG_TESTPLUS_ONLY)
+	case OTG_STATE_B_CHARGER:
+		if (test_bit(B_SESS_VLD, &motg->inputs)) {
+			pr_debug("BSV set again\n");
+			msm_otg_dbg_log_event(&motg->phy, "BSV SET AGAIN",
+				motg->inputs, otg->phy->state);
+		} else if (!test_bit(B_SESS_VLD, &motg->inputs)) {
+			otg->phy->state = OTG_STATE_B_IDLE;
+			work = 1;
+		}
+		break;
+#endif
 	case OTG_STATE_A_WAIT_BCON:
 		if ((test_bit(ID, &motg->inputs) &&
 				!test_bit(ID_A, &motg->inputs)) ||
